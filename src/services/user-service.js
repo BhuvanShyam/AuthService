@@ -19,10 +19,10 @@ class UserService {
 
   async signIn(email, plainPassword) {
     try {
-      //step 1 -> fetch user usg email
+      //step 1 -> fetch user by email
       const user = await this.userRepository.getByemail(email);
 
-      //step -02 incoming password with stored encrypted password
+      //step-02 incoming password with stored encrypted password
       const passwordMatch = this.checkPassword(plainPassword, user.password);
       if (!passwordMatch) {
         console.log("password doesnt match");
@@ -38,9 +38,26 @@ class UserService {
     }
   }
 
+  async isAuthenticated(token) {
+    try {
+      const rseponse = this.verifyToken(token);
+      if (!rseponse) {
+        throw { error: "Invalid token" };
+      }
+      const user = this.userRepository.getById(rseponse.id);
+      if (!user) {
+        throw { error: "No user with corresponding token is found" };
+      }
+      return user.id;
+    } catch (error) {
+      console.log("Something went wrong in auth process");
+      throw error;
+    }
+  }
+
   createtoken(user) {
     try {
-      const result = jwt.sign(user, JWT_KEY, { expiresIn: "1h" });
+      const result = jwt.sign(user, JWT_KEY, { expiresIn: "1d" });
       return result;
     } catch (error) {
       console.log("Something went wrong in token creation");
