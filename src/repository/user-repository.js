@@ -22,6 +22,19 @@ class UserRepository {
       throw error;
     }
   }
+
+  //get only email and id dont include or show password!!!!
+  async getById(userId) {
+    try {
+      const user = await User.findByPk(userId, {
+        attributes: ["email", "id"],
+      });
+      return user;
+    } catch (error) {
+      console.log("something went wrong in repo layer");
+      throw error;
+    }
+  }
 }
 
 module.exports = UserRepository;
