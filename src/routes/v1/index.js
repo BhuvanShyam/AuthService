@@ -16,11 +16,10 @@ router.post(
 
 router.get("/isAuthenticated", UserController.isAuthenticated);
 
-
-router.get('/dummy',(req,res) =>{
- return  res.status(200).json({
-    message: 'Hello from dummy route',
-  })
-})
+router.get(
+  "/isAdmin",
+  AuthRequestValidator.validateIsAdminRequest,
+  UserController.isAdmin
+);
 
 module.exports = router;

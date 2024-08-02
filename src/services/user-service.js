@@ -44,7 +44,7 @@ class UserService {
       if (!rseponse) {
         throw { error: "Invalid token" };
       }
-      const user =  await this.userRepository.getById(rseponse.id);
+      const user = await this.userRepository.getById(rseponse.id);
       if (!user) {
         throw { error: "No user with corresponding token is found" };
       }
@@ -80,6 +80,15 @@ class UserService {
       return bcrypt.compareSync(userInputPassword, encryptedPassword);
     } catch (error) {
       console.log("something went wrong in password comparison");
+      throw error;
+    }
+  }
+
+  async isAdmin(userId) {
+    try {
+      return this.userRepository.isAdmin(userId);
+    } catch (error) {
+      console.log("something went wrong in Service layer");
       throw error;
     }
   }
