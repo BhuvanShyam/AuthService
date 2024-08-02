@@ -2,76 +2,121 @@ const UserRepository = require("../repository/user-repository");
 const jwt = require("jsonwebtoken");
 const { JWT_KEY } = require("../config/serverConfig");
 const bcrypt = require("bcrypt");
+const AppErrors = require("../utils/error-handler");
+const { StatusCodes } = require("http-status-codes");
 
 class UserService {
   constructor() {
     this.userRepository = new UserRepository();
   }
+
   async create(data) {
     try {
-      const user = await this.userRepository.create(data);
-      return user;
+      return await this.userRepository.create(data);
     } catch (error) {
-      console.log("something went wrong in service layer");
-      throw error;
+      if (error instanceof AppErrors) {
+        throw error; // Propagate known AppErrors
+      }
+      console.log("Service error:", error);
+      throw new AppErrors(
+        "ServiceError",
+        "Something went wrong in the service layer",
+        "Logical issue found",
+        StatusCodes.INTERNAL_SERVER_ERROR
+      );
     }
   }
 
   async signIn(email, plainPassword) {
     try {
-      //step 1 -> fetch user by email
       const user = await this.userRepository.getByemail(email);
-
-      //step-02 incoming password with stored encrypted password
+      if (!user) {
+        throw new AppErrors(
+          "AuthenticationError",
+          "User not found",
+          "The email provided does not match any user",
+          StatusCodes.NOT_FOUND
+        );
+      }
       const passwordMatch = this.checkPassword(plainPassword, user.password);
       if (!passwordMatch) {
-        console.log("password doesnt match");
-        throw { error: "Incorrect password" };
+        throw new AppErrors(
+          "AuthenticationError",
+          "Incorrect password",
+          "The provided password does not match",
+          StatusCodes.UNAUTHORIZED
+        );
       }
-
-      //step-03 -> create token and send it to the user
-      const newJWT = this.createtoken({ email: user.email, id: user.id });
-      return newJWT;
+      return this.createtoken({ email: user.email, id: user.id });
     } catch (error) {
-      console.log("something went wrong in sign in process");
+      if(error.name == 'AttributeNotfound'){
+        throw error;
+      }
+      console.log("Something went wrong in the sign-in process");
       throw error;
     }
   }
 
   async isAuthenticated(token) {
     try {
-      const rseponse = this.verifyToken(token);
-      if (!rseponse) {
-        throw { error: "Invalid token" };
+      const response = this.verifyToken(token);
+      if (!response) {
+        throw new AppErrors(
+          "AuthenticationError",
+          "Invalid token",
+          "The provided token is invalid",
+          StatusCodes.UNAUTHORIZED
+        );
       }
-      const user = await this.userRepository.getById(rseponse.id);
+      const user = await this.userRepository.getById(response.id);
       if (!user) {
-        throw { error: "No user with corresponding token is found" };
+        throw new AppErrors(
+          "AuthenticationError",
+          "No user found",
+          "No user found with the provided token",
+          StatusCodes.NOT_FOUND
+        );
       }
       return user.id;
     } catch (error) {
-      console.log("Something went wrong in auth process");
-      throw error;
+      if (error instanceof AppErrors) {
+        throw error; // Propagate known AppErrors
+      }
+      console.log("Error during authentication:", error);
+      throw new AppErrors(
+        "ServiceError",
+        "Something went wrong during authentication",
+        "Logical issue found",
+        StatusCodes.INTERNAL_SERVER_ERROR
+      );
     }
   }
 
   createtoken(user) {
     try {
-      const result = jwt.sign(user, JWT_KEY, { expiresIn: "1d" });
-      return result;
+      return jwt.sign(user, JWT_KEY, { expiresIn: "1d" });
     } catch (error) {
-      console.log("Something went wrong in token creation");
-      throw error;
+      console.log("Error creating token:", error);
+      throw new AppErrors(
+        "TokenError",
+        "Error creating token",
+        "Failed to create JWT",
+        StatusCodes.INTERNAL_SERVER_ERROR
+      );
     }
   }
 
   verifyToken(token) {
     try {
-      const response = jwt.verify(token, JWT_KEY);
-      return response;
+      return jwt.verify(token, JWT_KEY);
     } catch (error) {
-      console.log("Something went wrong in verifyig the token", error);
-      throw error;
+      console.log("Error verifying token:", error);
+      throw new AppErrors(
+        "TokenError",
+        "Error verifying token",
+        "Failed to verify JWT",
+        StatusCodes.UNAUTHORIZED
+      );
     }
   }
 
@@ -79,17 +124,30 @@ class UserService {
     try {
       return bcrypt.compareSync(userInputPassword, encryptedPassword);
     } catch (error) {
-      console.log("something went wrong in password comparison");
-      throw error;
+      console.log("Error comparing passwords:", error);
+      throw new AppErrors(
+        "PasswordError",
+        "Error comparing passwords",
+        "Failed to compare passwords",
+        StatusCodes.INTERNAL_SERVER_ERROR
+      );
     }
   }
 
   async isAdmin(userId) {
     try {
-      return this.userRepository.isAdmin(userId);
+      return await this.userRepository.isAdmin(userId);
     } catch (error) {
-      console.log("something went wrong in Service layer");
-      throw error;
+      if (error instanceof AppErrors) {
+        throw error; // Propagate known AppErrors
+      }
+      console.log("Error checking admin status:", error);
+      throw new AppErrors(
+        "ServiceError",
+        "Something went wrong while checking admin status",
+        "Logical issue found",
+        StatusCodes.INTERNAL_SERVER_ERROR
+      );
     }
   }
 }
